@@ -1,0 +1,17 @@
+[
+  {
+    "rule_name": "Annual Physical",
+    "condition": "last_physical_days > 365",
+    "message": "Annual physical exam overdue"
+  },
+  {
+    "rule_name": "Flu Vaccine",
+    "condition": "flu_vaccine == False",
+    "message": "Flu vaccine missing"
+  },
+  {
+    "rule_name": "HbA1c Test",
+    "condition": "diabetic == True and hba1c_days > 180",
+    "message": "HbA1c diabetes test overdue"
+  }
+]
