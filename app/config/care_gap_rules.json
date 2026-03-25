@@ -1,0 +1,796 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "created": "2025-01-01",
+    "description": "Clinical care gap rules for chronic disease management. Rules are evaluated against FHIR resources (Patient, Condition, Observation, MedicationRequest) to detect missing or overdue care.",
+    "fhir_version": "R4",
+    "rule_categories": [
+      "lab_monitoring",
+      "medication_therapy",
+      "preventive_care",
+      "vital_signs",
+      "specialist_referral",
+      "vaccination"
+    ]
+  },
+
+  "risk_tier_thresholds": {
+    "description": "Determines patient risk tier based on total weighted gap score",
+    "tiers": {
+      "Low":      { "min_score": 0,  "max_score": 4  },
+      "Moderate": { "min_score": 5,  "max_score": 9  },
+      "High":     { "min_score": 10, "max_score": 999 }
+    },
+    "scoring_note": "Each rule carries a severity_weight. A patient's total score is the sum of weights for all triggered (active) gaps."
+  },
+
+  "condition_codes": {
+    "description": "SNOMED-CT and ICD-10 codes used to identify qualifying conditions in FHIR Condition resources",
+    "diabetes_type2": {
+      "snomed": ["44054006"],
+      "icd10": ["E11", "E11.9", "E11.65", "E11.51"]
+    },
+    "diabetes_type1": {
+      "snomed": ["46635009"],
+      "icd10": ["E10", "E10.9"]
+    },
+    "hypertension": {
+      "snomed": ["38341003"],
+      "icd10": ["I10", "I10.0"]
+    },
+    "hyperlipidemia": {
+      "snomed": ["55822004"],
+      "icd10": ["E78.5", "E78.00", "E78.1"]
+    },
+    "ckd": {
+      "snomed": ["709044004"],
+      "icd10": ["N18", "N18.3", "N18.4", "N18.5"]
+    },
+    "heart_failure": {
+      "snomed": ["84114007"],
+      "icd10": ["I50", "I50.9"]
+    },
+    "coronary_artery_disease": {
+      "snomed": ["53741008"],
+      "icd10": ["I25.10", "I25.110"]
+    },
+    "obesity": {
+      "snomed": ["414916001"],
+      "icd10": ["E66", "E66.9", "E66.01"]
+    },
+    "depression": {
+      "snomed": ["35489007"],
+      "icd10": ["F32", "F32.9", "F33.0"]
+    },
+    "asthma": {
+      "snomed": ["195967001"],
+      "icd10": ["J45", "J45.50", "J45.20"]
+    }
+  },
+
+  "observation_codes": {
+    "description": "LOINC codes for lab results and clinical measurements used in Observation resources",
+    "hba1c":             { "loinc": "4548-4",  "display": "Hemoglobin A1c/Hemoglobin.total in Blood" },
+    "fasting_glucose":   { "loinc": "1558-6",  "display": "Fasting glucose [Mass/volume] in Serum or Plasma" },
+    "ldl_cholesterol":   { "loinc": "2089-1",  "display": "LDL Cholesterol [Mass/volume] in Serum or Plasma" },
+    "hdl_cholesterol":   { "loinc": "2085-9",  "display": "HDL Cholesterol [Mass/volume] in Serum or Plasma" },
+    "total_cholesterol": { "loinc": "2093-3",  "display": "Cholesterol [Mass/volume] in Serum or Plasma" },
+    "triglycerides":     { "loinc": "2571-8",  "display": "Triglycerides [Mass/volume] in Serum or Plasma" },
+    "blood_pressure_systolic":  { "loinc": "8480-6",  "display": "Systolic blood pressure" },
+    "blood_pressure_diastolic": { "loinc": "8462-4",  "display": "Diastolic blood pressure" },
+    "blood_pressure_panel":     { "loinc": "55284-4", "display": "Blood pressure panel" },
+    "bmi":               { "loinc": "39156-5", "display": "Body mass index (BMI) [Ratio]" },
+    "body_weight":       { "loinc": "29463-7", "display": "Body weight" },
+    "egfr":              { "loinc": "33914-3", "display": "Glomerular filtration rate/1.73 sq M.predicted" },
+    "uacr":              { "loinc": "9318-7",  "display": "Albumin/Creatinine [Mass ratio] in Urine" },
+    "serum_creatinine":  { "loinc": "2160-0",  "display": "Creatinine [Mass/volume] in Serum or Plasma" },
+    "potassium":         { "loinc": "2823-3",  "display": "Potassium [Moles/volume] in Serum or Plasma" },
+    "microalbumin_urine":{ "loinc": "14959-1", "display": "Microalbumin [Mass/volume] in Urine" },
+    "foot_exam":         { "loinc": "29544-4", "display": "Foot assessment" },
+    "eye_exam":          { "loinc": "67797-5", "display": "Ophthalmology Outpatient Visit" },
+    "depression_screen": { "loinc": "55757-9", "display": "Patient Health Questionnaire 2 item (PHQ-2)" },
+    "mammography":       { "loinc": "24606-6", "display": "Mammography" },
+    "pap_smear":         { "loinc": "10524-7", "display": "Microscopic observation in Cervix by Cyto stain" },
+    "colorectal_screen": { "loinc": "77353-1", "display": "Noninvasive colorectal cancer DNA and occult blood screening" },
+    "bone_density":      { "loinc": "38265-5", "display": "DXA [T-score] Bone" }
+  },
+
+  "medication_codes": {
+    "description": "RxNorm codes for medication classes checked in MedicationRequest resources",
+    "statins": {
+      "rxnorm_class": "C10AA",
+      "display": "HMG-CoA reductase inhibitors (Statins)",
+      "examples": {
+        "atorvastatin":  "83367",
+        "rosuvastatin":  "301542",
+        "simvastatin":   "36567",
+        "pravastatin":   "42463",
+        "lovastatin":    "41493"
+      }
+    },
+    "ace_inhibitors": {
+      "rxnorm_class": "C09AA",
+      "display": "ACE Inhibitors",
+      "examples": {
+        "lisinopril":   "29046",
+        "enalapril":    "18867",
+        "ramipril":     "35296",
+        "captopril":    "1998"
+      }
+    },
+    "arbs": {
+      "rxnorm_class": "C09CA",
+      "display": "Angiotensin II Receptor Blockers",
+      "examples": {
+        "losartan":     "203160",
+        "valsartan":    "69749",
+        "olmesartan":   "331026",
+        "irbesartan":   "83818"
+      }
+    },
+    "metformin": {
+      "rxnorm_class": "A10BA",
+      "display": "Biguanides (Metformin)",
+      "examples": {
+        "metformin": "6809"
+      }
+    },
+    "aspirin_low_dose": {
+      "rxnorm_class": "B01AC",
+      "display": "Antiplatelet agents (low-dose aspirin)",
+      "examples": {
+        "aspirin_81mg": "1191"
+      }
+    },
+    "beta_blockers": {
+      "rxnorm_class": "C07A",
+      "display": "Beta-adrenoreceptor antagonists",
+      "examples": {
+        "metoprolol":  "41493",
+        "carvedilol":  "20352",
+        "bisoprolol":  "19484"
+      }
+    },
+    "sglt2_inhibitors": {
+      "rxnorm_class": "A10BK",
+      "display": "SGLT2 Inhibitors",
+      "examples": {
+        "empagliflozin":  "1545653",
+        "dapagliflozin":  "1488574",
+        "canagliflozin":  "1373463"
+      }
+    },
+    "glp1_agonists": {
+      "rxnorm_class": "A10BJ",
+      "display": "GLP-1 Receptor Agonists",
+      "examples": {
+        "semaglutide":  "2200875",
+        "dulaglutide":  "1551291",
+        "liraglutide":  "475968"
+      }
+    }
+  },
+
+  "rules": [
+
+    {
+      "rule_id": "DM-LAB-001",
+      "name": "HbA1c Monitoring – Every 6 Months",
+      "category": "lab_monitoring",
+      "condition_required": ["diabetes_type2", "diabetes_type1"],
+      "description": "Patients with diabetes should have HbA1c measured at least every 6 months to assess glycemic control.",
+      "clinical_guideline": "ADA Standards of Medical Care in Diabetes",
+      "fhir_resource": "Observation",
+      "observation_loinc": "4548-4",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 180,
+        "logic": "Flag if no HbA1c observation exists within the last 180 days"
+      },
+      "thresholds": {
+        "target": "< 7.0%",
+        "action_required_above": "9.0%",
+        "note": "Flag separately if most recent HbA1c >= 9.0% (poor control)"
+      },
+      "gap_message": "No HbA1c test recorded in the last 6 months. Repeat testing is required for ongoing diabetes management.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "DM-LAB-002",
+      "name": "HbA1c Poor Control Flag",
+      "category": "lab_monitoring",
+      "condition_required": ["diabetes_type2", "diabetes_type1"],
+      "description": "Flag patients whose most recent HbA1c is >= 9.0%, indicating poor glycemic control.",
+      "clinical_guideline": "ADA Standards of Medical Care in Diabetes",
+      "fhir_resource": "Observation",
+      "observation_loinc": "4548-4",
+      "evaluation": {
+        "check_type": "value_threshold",
+        "operator": ">=",
+        "threshold_value": 9.0,
+        "unit": "%",
+        "logic": "Flag if most recent HbA1c value is >= 9.0%"
+      },
+      "gap_message": "Most recent HbA1c is >= 9.0%, indicating poor glycemic control. Review medication regimen and patient adherence.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "DM-LAB-003",
+      "name": "Annual Urine Albumin-to-Creatinine Ratio (UACR)",
+      "category": "lab_monitoring",
+      "condition_required": ["diabetes_type2", "diabetes_type1"],
+      "description": "Annual UACR screening detects early diabetic nephropathy.",
+      "clinical_guideline": "ADA Standards of Medical Care in Diabetes",
+      "fhir_resource": "Observation",
+      "observation_loinc": "9318-7",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no UACR observation exists within the last 365 days"
+      },
+      "gap_message": "No urine albumin-to-creatinine ratio (UACR) test in the last 12 months. Required annually for diabetic kidney disease screening.",
+      "severity": "Moderate",
+      "severity_weight": 3,
+      "active": true
+    },
+
+    {
+      "rule_id": "DM-LAB-004",
+      "name": "Annual eGFR Monitoring",
+      "category": "lab_monitoring",
+      "condition_required": ["diabetes_type2", "diabetes_type1"],
+      "description": "Annual eGFR measurement to monitor renal function in patients with diabetes.",
+      "clinical_guideline": "ADA Standards of Medical Care in Diabetes",
+      "fhir_resource": "Observation",
+      "observation_loinc": "33914-3",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no eGFR observation within the last 365 days"
+      },
+      "gap_message": "No eGFR measurement in the last 12 months. Annual renal function monitoring is required for patients with diabetes.",
+      "severity": "Moderate",
+      "severity_weight": 3,
+      "active": true
+    },
+
+    {
+      "rule_id": "DM-MED-001",
+      "name": "Statin Therapy for Diabetes (Age 40–75)",
+      "category": "medication_therapy",
+      "condition_required": ["diabetes_type2", "diabetes_type1"],
+      "patient_criteria": {
+        "age_min": 40,
+        "age_max": 75
+      },
+      "description": "Patients aged 40–75 with diabetes should be on moderate- or high-intensity statin therapy to reduce cardiovascular risk, regardless of LDL level.",
+      "clinical_guideline": "ADA Standards of Medical Care in Diabetes; ACC/AHA Cholesterol Guidelines",
+      "fhir_resource": "MedicationRequest",
+      "medication_class": "statins",
+      "evaluation": {
+        "check_type": "active_medication",
+        "logic": "Flag if no active statin MedicationRequest is present for an eligible patient"
+      },
+      "gap_message": "No active statin therapy found. Moderate- to high-intensity statin is recommended for patients with diabetes aged 40–75.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "DM-MED-002",
+      "name": "Metformin First-Line Therapy for Type 2 Diabetes",
+      "category": "medication_therapy",
+      "condition_required": ["diabetes_type2"],
+      "description": "Metformin is the preferred initial pharmacologic agent for type 2 diabetes in the absence of contraindications.",
+      "clinical_guideline": "ADA Standards of Medical Care in Diabetes",
+      "fhir_resource": "MedicationRequest",
+      "medication_class": "metformin",
+      "evaluation": {
+        "check_type": "active_medication",
+        "logic": "Flag if no active metformin or other antidiabetic agent is present. Note: absence may be acceptable if patient is on insulin or GLP-1/SGLT2 agents."
+      },
+      "gap_message": "No antidiabetic medication (including metformin) found in active medications. Review treatment regimen for type 2 diabetes.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "DM-EXAM-001",
+      "name": "Annual Dilated Eye Exam",
+      "category": "specialist_referral",
+      "condition_required": ["diabetes_type2", "diabetes_type1"],
+      "description": "Annual ophthalmology exam to screen for diabetic retinopathy.",
+      "clinical_guideline": "ADA Standards of Medical Care in Diabetes",
+      "fhir_resource": "Observation",
+      "observation_loinc": "67797-5",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no eye exam observation or encounter in the last 365 days"
+      },
+      "gap_message": "No annual dilated eye exam recorded in the last 12 months. Required for diabetic retinopathy screening.",
+      "severity": "Moderate",
+      "severity_weight": 3,
+      "active": true
+    },
+
+    {
+      "rule_id": "DM-EXAM-002",
+      "name": "Annual Comprehensive Foot Exam",
+      "category": "specialist_referral",
+      "condition_required": ["diabetes_type2", "diabetes_type1"],
+      "description": "Annual foot exam to assess for peripheral neuropathy and vascular disease.",
+      "clinical_guideline": "ADA Standards of Medical Care in Diabetes",
+      "fhir_resource": "Observation",
+      "observation_loinc": "29544-4",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no foot exam documented in the last 365 days"
+      },
+      "gap_message": "No annual foot exam documented in the last 12 months. Required for early detection of diabetic neuropathy and peripheral vascular disease.",
+      "severity": "Moderate",
+      "severity_weight": 2,
+      "active": true
+    },
+
+    {
+      "rule_id": "HTN-VS-001",
+      "name": "Blood Pressure Monitoring – Every 6 Months",
+      "category": "vital_signs",
+      "condition_required": ["hypertension"],
+      "description": "Patients diagnosed with hypertension should have blood pressure recorded at least every 6 months.",
+      "clinical_guideline": "ACC/AHA Hypertension Guidelines",
+      "fhir_resource": "Observation",
+      "observation_loinc": "55284-4",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 180,
+        "logic": "Flag if no blood pressure observation within the last 180 days"
+      },
+      "thresholds": {
+        "target_systolic": "< 130 mmHg",
+        "target_diastolic": "< 80 mmHg",
+        "stage2_systolic": ">= 140 mmHg",
+        "stage2_diastolic": ">= 90 mmHg"
+      },
+      "gap_message": "No blood pressure recorded in the last 6 months for a patient with hypertension. Monitoring is required.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "HTN-VS-002",
+      "name": "Uncontrolled Blood Pressure Flag",
+      "category": "vital_signs",
+      "condition_required": ["hypertension"],
+      "description": "Flag patients with most recent blood pressure at Stage 2 hypertension levels (systolic >= 140 or diastolic >= 90).",
+      "clinical_guideline": "ACC/AHA Hypertension Guidelines",
+      "fhir_resource": "Observation",
+      "observation_loinc": "55284-4",
+      "evaluation": {
+        "check_type": "value_threshold",
+        "operator": ">=",
+        "threshold_value_systolic": 140,
+        "threshold_value_diastolic": 90,
+        "logic": "Flag if most recent systolic BP >= 140 mmHg OR diastolic >= 90 mmHg"
+      },
+      "gap_message": "Most recent blood pressure meets Stage 2 hypertension criteria (>=140/90 mmHg). Medication review and lifestyle counseling recommended.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "HTN-MED-001",
+      "name": "ACE Inhibitor or ARB for Hypertension with CKD or Diabetes",
+      "category": "medication_therapy",
+      "condition_required_any": ["hypertension"],
+      "condition_also_required_any": ["ckd", "diabetes_type2", "diabetes_type1"],
+      "description": "Patients with hypertension and either CKD or diabetes should be on an ACE inhibitor or ARB to provide nephroprotective benefit.",
+      "clinical_guideline": "KDIGO CKD Guidelines; ADA Standards of Medical Care",
+      "fhir_resource": "MedicationRequest",
+      "medication_class": ["ace_inhibitors", "arbs"],
+      "evaluation": {
+        "check_type": "active_medication_any",
+        "logic": "Flag if neither ACE inhibitor nor ARB is present in active medications for eligible patient"
+      },
+      "gap_message": "No ACE inhibitor or ARB found in active medications. Recommended for patients with hypertension plus CKD or diabetes.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "CV-MED-001",
+      "name": "Statin Therapy for Established Cardiovascular Disease",
+      "category": "medication_therapy",
+      "condition_required_any": ["coronary_artery_disease", "heart_failure"],
+      "description": "All patients with established cardiovascular disease (CAD or HF) should be on high-intensity statin therapy for secondary prevention.",
+      "clinical_guideline": "ACC/AHA Cholesterol Guideline",
+      "fhir_resource": "MedicationRequest",
+      "medication_class": "statins",
+      "evaluation": {
+        "check_type": "active_medication",
+        "logic": "Flag if no active statin present for patient with CAD or HF"
+      },
+      "gap_message": "No statin therapy found in a patient with established cardiovascular disease. High-intensity statin is indicated for secondary prevention.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "CV-MED-002",
+      "name": "Beta-Blocker Therapy Post-Heart Failure",
+      "category": "medication_therapy",
+      "condition_required": ["heart_failure"],
+      "description": "Patients with heart failure with reduced ejection fraction (HFrEF) should be on guideline-directed beta-blocker therapy.",
+      "clinical_guideline": "ACC/AHA Heart Failure Guidelines",
+      "fhir_resource": "MedicationRequest",
+      "medication_class": "beta_blockers",
+      "evaluation": {
+        "check_type": "active_medication",
+        "logic": "Flag if no active beta-blocker present for patient with heart failure"
+      },
+      "gap_message": "No beta-blocker therapy found for a patient with heart failure. Guideline-directed beta-blocker therapy is recommended.",
+      "severity": "High",
+      "severity_weight": 4,
+      "active": true
+    },
+
+    {
+      "rule_id": "LIPID-LAB-001",
+      "name": "Annual Lipid Panel",
+      "category": "lab_monitoring",
+      "condition_required_any": ["diabetes_type2", "diabetes_type1", "hyperlipidemia", "hypertension", "coronary_artery_disease"],
+      "description": "Patients with cardiovascular risk factors should have a fasting lipid panel at least annually.",
+      "clinical_guideline": "ACC/AHA Cholesterol Guideline; ADA Standards of Medical Care",
+      "fhir_resource": "Observation",
+      "observation_loinc": "2093-3",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no total cholesterol or LDL observation within the last 365 days"
+      },
+      "gap_message": "No lipid panel recorded in the last 12 months for a patient with cardiovascular risk factors.",
+      "severity": "Moderate",
+      "severity_weight": 3,
+      "active": true
+    },
+
+    {
+      "rule_id": "PREV-SCREEN-001",
+      "name": "Annual Wellness Visit / Physical Exam",
+      "category": "preventive_care",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 18
+      },
+      "description": "All adult patients should have a documented annual wellness visit or preventive physical exam.",
+      "clinical_guideline": "USPSTF; CMS Annual Wellness Visit",
+      "fhir_resource": "Encounter",
+      "encounter_type_codes": ["AWV", "99381", "99382", "99383", "99385", "99386", "99387", "99391", "99393", "99395", "99396", "99397"],
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no preventive/wellness encounter type in the last 365 days"
+      },
+      "gap_message": "No annual wellness visit or preventive physical exam documented in the last 12 months.",
+      "severity": "Low",
+      "severity_weight": 1,
+      "active": true
+    },
+
+    {
+      "rule_id": "PREV-SCREEN-002",
+      "name": "Depression Screening (PHQ-2/PHQ-9)",
+      "category": "preventive_care",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 18
+      },
+      "description": "Annual depression screening using a validated tool (PHQ-2 or PHQ-9) for all adults.",
+      "clinical_guideline": "USPSTF Depression Screening Recommendation",
+      "fhir_resource": "Observation",
+      "observation_loinc": "55757-9",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no PHQ-2 or PHQ-9 observation in the last 365 days"
+      },
+      "gap_message": "No depression screening (PHQ-2 or PHQ-9) documented in the last 12 months.",
+      "severity": "Low",
+      "severity_weight": 1,
+      "active": true
+    },
+
+    {
+      "rule_id": "PREV-SCREEN-003",
+      "name": "Mammography Screening (Women Age 40–74)",
+      "category": "preventive_care",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 40,
+        "age_max": 74,
+        "gender": "female"
+      },
+      "description": "Biennial mammography screening for women aged 40–74 as per USPSTF.",
+      "clinical_guideline": "USPSTF Breast Cancer Screening Recommendation",
+      "fhir_resource": "Observation",
+      "observation_loinc": "24606-6",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 730,
+        "logic": "Flag if no mammography observation in the last 730 days (2 years)"
+      },
+      "gap_message": "No mammography recorded in the last 2 years for an eligible female patient aged 40–74.",
+      "severity": "Moderate",
+      "severity_weight": 2,
+      "active": true
+    },
+
+    {
+      "rule_id": "PREV-SCREEN-004",
+      "name": "Cervical Cancer Screening – Pap Smear (Women Age 21–65)",
+      "category": "preventive_care",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 21,
+        "age_max": 65,
+        "gender": "female"
+      },
+      "description": "Pap smear every 3 years (or Pap + HPV co-test every 5 years) for women aged 21–65.",
+      "clinical_guideline": "USPSTF Cervical Cancer Screening Recommendation",
+      "fhir_resource": "Observation",
+      "observation_loinc": "10524-7",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 1095,
+        "logic": "Flag if no Pap smear observation in the last 1095 days (3 years)"
+      },
+      "gap_message": "No cervical cancer screening (Pap smear) recorded in the last 3 years for an eligible female patient.",
+      "severity": "Moderate",
+      "severity_weight": 2,
+      "active": true
+    },
+
+    {
+      "rule_id": "PREV-SCREEN-005",
+      "name": "Colorectal Cancer Screening (Age 45–75)",
+      "category": "preventive_care",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 45,
+        "age_max": 75
+      },
+      "description": "Colorectal cancer screening for adults aged 45–75. Fecal occult blood test annually or colonoscopy every 10 years.",
+      "clinical_guideline": "USPSTF Colorectal Cancer Screening Recommendation",
+      "fhir_resource": "Observation",
+      "observation_loinc": "77353-1",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no colorectal screening observation in the last 365 days (FOBT) or 3650 days (colonoscopy)"
+      },
+      "gap_message": "No colorectal cancer screening documented within the recommended interval for a patient aged 45–75.",
+      "severity": "Moderate",
+      "severity_weight": 2,
+      "active": true
+    },
+
+    {
+      "rule_id": "PREV-SCREEN-006",
+      "name": "Bone Density Screening – DEXA (Women Age 65+)",
+      "category": "preventive_care",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 65,
+        "gender": "female"
+      },
+      "description": "DEXA scan to screen for osteoporosis in women aged 65 and older.",
+      "clinical_guideline": "USPSTF Osteoporosis Screening Recommendation",
+      "fhir_resource": "Observation",
+      "observation_loinc": "38265-5",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 730,
+        "logic": "Flag if no bone density (DEXA) observation in the last 730 days"
+      },
+      "gap_message": "No bone density screening (DEXA scan) documented in the last 2 years for an eligible female patient aged 65+.",
+      "severity": "Low",
+      "severity_weight": 1,
+      "active": true
+    },
+
+    {
+      "rule_id": "VAX-001",
+      "name": "Annual Influenza Vaccination",
+      "category": "vaccination",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 6
+      },
+      "description": "Annual influenza vaccination recommended for all persons 6 months and older.",
+      "clinical_guideline": "CDC ACIP Immunization Schedule",
+      "fhir_resource": "Immunization",
+      "vaccine_code_cvx": "141",
+      "vaccine_display": "Influenza, seasonal, injectable",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no influenza immunization resource within the last 365 days"
+      },
+      "gap_message": "No annual influenza vaccination recorded in the last 12 months.",
+      "severity": "Low",
+      "severity_weight": 1,
+      "active": true
+    },
+
+    {
+      "rule_id": "VAX-002",
+      "name": "Pneumococcal Vaccination (Age 65+)",
+      "category": "vaccination",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 65
+      },
+      "description": "PCV15 or PCV20 pneumococcal vaccination recommended for adults 65 and older.",
+      "clinical_guideline": "CDC ACIP Immunization Schedule",
+      "fhir_resource": "Immunization",
+      "vaccine_code_cvx": ["215", "216"],
+      "vaccine_display": "Pneumococcal conjugate PCV15 / PCV20",
+      "evaluation": {
+        "check_type": "ever_received",
+        "logic": "Flag if no pneumococcal vaccination (PCV15 or PCV20) is present in immunization history for a patient aged 65+"
+      },
+      "gap_message": "No pneumococcal vaccination (PCV15 or PCV20) documented for a patient aged 65 or older.",
+      "severity": "Moderate",
+      "severity_weight": 2,
+      "active": true
+    },
+
+    {
+      "rule_id": "VAX-003",
+      "name": "COVID-19 Vaccination – Up to Date",
+      "category": "vaccination",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 18
+      },
+      "description": "Adults should be up to date with COVID-19 vaccinations per current CDC guidance.",
+      "clinical_guideline": "CDC ACIP Immunization Schedule",
+      "fhir_resource": "Immunization",
+      "vaccine_code_cvx": ["207", "208", "210", "212"],
+      "vaccine_display": "COVID-19 vaccine",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no COVID-19 immunization within the last 365 days (current booster guidance)"
+      },
+      "gap_message": "COVID-19 vaccination may not be up to date. Review current CDC booster recommendations.",
+      "severity": "Low",
+      "severity_weight": 1,
+      "active": true
+    },
+
+    {
+      "rule_id": "VAX-004",
+      "name": "Shingles (Zoster) Vaccination (Age 50+)",
+      "category": "vaccination",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 50
+      },
+      "description": "Recombinant zoster vaccine (RZV / Shingrix) 2-dose series recommended for adults aged 50+.",
+      "clinical_guideline": "CDC ACIP Immunization Schedule",
+      "fhir_resource": "Immunization",
+      "vaccine_code_cvx": "187",
+      "vaccine_display": "Zoster recombinant (Shingrix)",
+      "evaluation": {
+        "check_type": "series_complete",
+        "required_doses": 2,
+        "logic": "Flag if fewer than 2 doses of RZV are documented for a patient aged 50+"
+      },
+      "gap_message": "Shingles (Shingrix) vaccination series is incomplete or missing for a patient aged 50 or older.",
+      "severity": "Low",
+      "severity_weight": 1,
+      "active": true
+    },
+
+    {
+      "rule_id": "BMI-001",
+      "name": "BMI Documented at Annual Visit",
+      "category": "preventive_care",
+      "condition_required": [],
+      "patient_criteria": {
+        "age_min": 18
+      },
+      "description": "Body mass index (BMI) should be calculated and documented at least annually.",
+      "clinical_guideline": "USPSTF Obesity Screening Recommendation",
+      "fhir_resource": "Observation",
+      "observation_loinc": "39156-5",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 365,
+        "logic": "Flag if no BMI observation within the last 365 days"
+      },
+      "gap_message": "No BMI recorded in the last 12 months.",
+      "severity": "Low",
+      "severity_weight": 1,
+      "active": true
+    },
+
+    {
+      "rule_id": "BMI-002",
+      "name": "Obesity – Weight Management Referral",
+      "category": "preventive_care",
+      "condition_required": ["obesity"],
+      "description": "Patients with documented obesity (BMI >= 30) should have evidence of weight management counseling or referral.",
+      "clinical_guideline": "USPSTF Obesity in Adults Recommendation",
+      "fhir_resource": "Observation",
+      "observation_loinc": "39156-5",
+      "evaluation": {
+        "check_type": "value_threshold",
+        "operator": ">=",
+        "threshold_value": 30.0,
+        "unit": "kg/m2",
+        "secondary_check": "referral_or_counseling_documented",
+        "logic": "Flag if BMI >= 30 and no weight management referral or behavioral counseling is documented in the last 365 days"
+      },
+      "gap_message": "Patient has obesity (BMI >= 30) with no documented weight management counseling or referral in the last 12 months.",
+      "severity": "Moderate",
+      "severity_weight": 2,
+      "active": true
+    },
+
+    {
+      "rule_id": "CKD-LAB-001",
+      "name": "Annual Potassium Monitoring for CKD",
+      "category": "lab_monitoring",
+      "condition_required": ["ckd"],
+      "description": "Patients with CKD should have serum potassium monitored at least annually due to risk of hyperkalemia.",
+      "clinical_guideline": "KDIGO CKD Management Guidelines",
+      "fhir_resource": "Observation",
+      "observation_loinc": "2823-3",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 180,
+        "logic": "Flag if no serum potassium observation within the last 180 days for a CKD patient"
+      },
+      "gap_message": "No serum potassium measurement in the last 6 months for a patient with CKD.",
+      "severity": "Moderate",
+      "severity_weight": 3,
+      "active": true
+    },
+
+    {
+      "rule_id": "CKD-LAB-002",
+      "name": "Annual eGFR Monitoring for CKD",
+      "category": "lab_monitoring",
+      "condition_required": ["ckd"],
+      "description": "Patients with CKD should have eGFR monitored at least every 6 months to track disease progression.",
+      "clinical_guideline": "KDIGO CKD Management Guidelines",
+      "fhir_resource": "Observation",
+      "observation_loinc": "33914-3",
+      "evaluation": {
+        "check_type": "recency",
+        "max_days_since_last": 180,
+        "logic": "Flag if no eGFR observation within the last 180 days for a CKD patient"
+      },
+      "gap_message": "No eGFR measurement in the last 6 months for a patient with CKD. Regular monitoring required to track disease progression.",
+      "severity": "High",
+      "severity_weight": 3,
+      "active": true
+    }
+  ]
+}
