@@ -4,7 +4,11 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from auth_guard import require_login
+
 st.title("Import Patient FHIR Files")
+
+token = require_login()
 
 st.write("Upload a Patient FHIR JSON file")
 

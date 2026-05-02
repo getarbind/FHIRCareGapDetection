@@ -5,6 +5,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from auth_guard import require_login
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
@@ -15,6 +17,8 @@ API_URL = "http://localhost:8000"
 
 st.title("Patient Care Gap Dashboard")
 st.write("Select a patient to view their summary, detected care gaps, and risk tier.")
+
+token = require_login()
 
 imported_patients = st.session_state.get("imported_patients", {})
 selected_patient = None

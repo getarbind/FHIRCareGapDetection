@@ -5,3 +5,8 @@ requests
 pydantic
 plotly
 pandas
+sqlalchemy
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart

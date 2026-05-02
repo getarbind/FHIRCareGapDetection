@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 from datetime import date, datetime
 
+from auth_guard import require_login
+
 # Allow imports from project root
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
@@ -14,6 +16,8 @@ from app.service.care_gap_service import evaluate_patient_gaps
 
 st.title("Population Analytics")
 st.write("View overall trends in care gaps and risk tiers across the patient population.")
+
+token = require_login()
 
 # Get imported patients from session
 patients = st.session_state.get("imported_patients", {})

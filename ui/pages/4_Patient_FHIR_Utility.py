@@ -1,7 +1,11 @@
 import streamlit as st
 
+from auth_guard import require_login
+
 st.title("Patient FHIR Utility")
 st.write("Use this utility page to manage imported patient data stored in session state.")
+
+token = require_login()
 
 if "imported_patients" not in st.session_state:
     st.session_state["imported_patients"] = {}
