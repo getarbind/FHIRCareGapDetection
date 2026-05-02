@@ -7,13 +7,14 @@ from typing import Any, Dict, Optional
 
 from auth_guard import require_login
 
+UI_DIR   = Path(__file__).resolve().parents[1]
 ROOT_DIR = Path(__file__).resolve().parents[2]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+for p in (str(UI_DIR), str(ROOT_DIR)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
+from config import API_URL
 from app.service.care_gap_service import evaluate_patient_gaps
-
-API_URL = "http://localhost:8000"
 
 st.title("Patient Care Gap Dashboard")
 st.write("Select a patient to view their summary, detected care gaps, and risk tier.")

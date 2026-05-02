@@ -1,7 +1,10 @@
 import streamlit as st
 import requests
+import sys
+from pathlib import Path
 
-API_URL = "http://127.0.0.1:8000"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from config import API_URL
 
 ROLE_LABELS = {
     "patient":   "Patient",
